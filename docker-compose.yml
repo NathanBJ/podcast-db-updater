@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  podcast-pipeline-job:
+    # Build the image from the current directory (.)
+    build: .
+    image: bkhk-podcast-pipeline:latest
+    container_name: podcast-pipeline-container
+    
+    # Map the persistent database folder
+    volumes:
+      - ./podcast_db_local_fr:/app/podcast_db_local_fr
+    
+    env_file:
+      - .env

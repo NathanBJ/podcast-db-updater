@@ -1,0 +1,35 @@
+[project]
+name = "bkhk-ai-test"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "chromadb>=1.4.0",
+    "feedparser>=6.0.12",
+    "openai-whisper>=20250625",
+    "sentence-transformers>=5.2.0",
+    "spotipy>=2.25.2",
+]
+
+[tool.uv]
+# 1. On définit explicitement PyPI comme source par défaut
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+default = true
+
+# 2. On ajoute PyTorch CPU comme source secondaire "explicite"
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+# 3. On force torch à utiliser la source secondaire définie plus haut
+torch = [
+    { index = "pytorch-cpu" }
+]
+torchvision = [
+    { index = "pytorch-cpu" }
+]
