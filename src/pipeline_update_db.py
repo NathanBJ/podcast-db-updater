@@ -45,7 +45,7 @@ if __name__ == "__main__":
     last_modified_date=get_last_modified_timestamp(chromadb_path)
     print(last_modified_date)
     print(f"⬇️  Downloading new episodes since {last_modified_date}...")
-    '''download_podcasts.download_all_episode(
+    download_podcasts.download_all_episode(
         rss_url=RSS_FEED,
         last_update_date=last_modified_date,
         output_folder=TEMP_FOLDER
@@ -54,7 +54,7 @@ if __name__ == "__main__":
     transcribe_podcast.transcribe_audio(
         target_folder=TEMP_FOLDER,
         model_size="base"
-    )'''
+    )
     print("🗄️  Updating the podcast database...")
     store_podcast.store_all_transcripts(
         TEMP_FOLDER,

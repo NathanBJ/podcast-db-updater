@@ -4,7 +4,7 @@ services:
   podcast-pipeline-job:
     # Build the image from the current directory (.)
     build: .
-    image: bkhk-podcast-pipeline:latest
+    image: 837563944804.dkr.ecr.eu-west-3.amazonaws.com/bkhk-podcast-pipeline-tf-dev:latest
     container_name: podcast-pipeline-container
     
     # Map the persistent database folder

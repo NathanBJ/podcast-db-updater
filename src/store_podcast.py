@@ -107,7 +107,7 @@ def store_all_transcripts(folder_path, collection_name="BKHK_podcast", db_path="
         ids=["last_update_timestamp"],
         documents=["Track when the database was last refreshed"],
         metadatas=[{
-            "timestamp": datetime.datetime(2020, 1, 1).isoformat(),
+            "timestamp": datetime.datetime.now().isoformat(),
             "status": "success"
         }]
     )
