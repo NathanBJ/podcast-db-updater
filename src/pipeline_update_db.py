@@ -12,23 +12,23 @@ DB_PATH="podcast_db_local_fr"
 
 def get_last_modified_timestamp(chromadb_path):
     """
-    Returns the last modified time from ChromaDB as a datetime object.
+    Returns the last published date from ChromaDB as a datetime object.
     Returns None if the database or timestamp doesn't exist.
     """
     try:
         client = chromadb.PersistentClient(path=chromadb_path)
         sys_collection = client.get_collection("system_metadata")
         
-        result = sys_collection.get(ids=["last_update_timestamp"])
+        result = sys_collection.get(ids=["last_published_date"])
 
         # Check if we actually got data back
         if result['metadatas'] and result['metadatas'][0]:
-            date_str = result['metadatas'][0]['timestamp']
+            date_str = result['metadatas'][0]['published_date']
             
             # Convert ISO String -> Datetime Object
             last_date_obj = datetime.fromisoformat(date_str)
             
-            print(f"📅 Last Knowledge Update: {last_date_obj}")
+            print(f"📅 Last Published Date: {last_date_obj}")
             return last_date_obj
             
     except Exception as e:

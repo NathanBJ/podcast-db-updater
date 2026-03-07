@@ -111,11 +111,18 @@ def download_episode(episode, headers, podcast_title, output_folder="mp3_downloa
                 size = file.write(data)
                 bar.update(size)
         spotify_url=get_spotify_url(title, podcast_title)
+        
+        # Extract publication date
+        published_date = None
+        if hasattr(episode, 'published_parsed') and episode.published_parsed:
+            published_date = datetime.fromtimestamp(time.mktime(episode.published_parsed)).isoformat()
+        
         metadata = {
             "title": title,
             "podcast": podcast_title,
             "audio_url": audio_url,
-            "spotify_url": spotify_url
+            "spotify_url": spotify_url,
+            "published_date": published_date
         }
         with open(json_filename, 'w', encoding='utf-8') as json_file:
             json.dump(metadata, json_file, ensure_ascii=False, indent=4)
@@ -153,6 +160,10 @@ def download_all_episode(rss_url, last_update_date, output_folder="mp3_downloads
             if published_date > last_update_date:
           
                 episodes_to_download.append(episode)
+    
+    # Sort by oldest first and limit to 5 too avoid downloading too many at once and exceeding requests limits
+    episodes_to_download.sort(key=lambda ep: ep.published_parsed if hasattr(ep, 'published_parsed') else time.gmtime(0))
+    episodes_to_download = episodes_to_download[:5]
 
     # Start the processing of each episode with different threads
     with concurrent.futures.ThreadPoolExecutor(max_workers=cpu_count) as executor:
