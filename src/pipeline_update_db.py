@@ -4,11 +4,15 @@ import download_podcasts
 import transcribe_podcast
 import store_podcast
 from datetime import datetime
+import os
 
 chromadb_path=Path(__file__).parent.parent / "podcast_db_local_fr"
-RSS_FEED = "https://rss.buzzsprout.com/2399777.rss"
+RSS_FEED = os.getenv("RSS_FEED")
+if not RSS_FEED:
+    raise RuntimeError("RSS_FEED environment variable is required")
 TEMP_FOLDER="mp3_downloads"
 DB_PATH="podcast_db_local_fr"
+COLLECTION_NAME = os.getenv("COLLECTION_NAME", "podcast_collection")
 
 def get_last_modified_timestamp(chromadb_path):
     """
@@ -58,6 +62,6 @@ if __name__ == "__main__":
     print("🗄️  Updating the podcast database...")
     store_podcast.store_all_transcripts(
         TEMP_FOLDER,
-        collection_name="BKHK_podcast", 
+        collection_name=COLLECTION_NAME,
         db_path=DB_PATH
     )

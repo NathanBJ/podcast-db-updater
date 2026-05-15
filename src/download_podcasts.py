@@ -161,9 +161,10 @@ def download_all_episode(rss_url, last_update_date, output_folder="mp3_downloads
           
                 episodes_to_download.append(episode)
     
-    # Sort by oldest first and limit to 5 too avoid downloading too many at once and exceeding requests limits
+    # Sort by oldest first and limit to MAX_EPISODES_PER_RUN to avoid exceeding API rate limits
     episodes_to_download.sort(key=lambda ep: ep.published_parsed if hasattr(ep, 'published_parsed') else time.gmtime(0))
-    episodes_to_download = episodes_to_download[:5]
+    max_episodes = int(os.getenv("MAX_DOWNLOADED_EPISODES_PER_RUN", 5))
+    episodes_to_download = episodes_to_download[:max_episodes]
 
     # Start the processing of each episode with different threads
     with concurrent.futures.ThreadPoolExecutor(max_workers=cpu_count) as executor:
@@ -252,8 +253,9 @@ def download_latest_episode(rss_url, output_folder="downloads"):
         return None
 
 if __name__ == "__main__":
-    # Example: "Darknet Diaries" (Known to work well)
-    RSS_FEED = "https://rss.buzzsprout.com/2399777.rss"
+    RSS_FEED = os.getenv("RSS_FEED")
+    if not RSS_FEED:
+        raise RuntimeError("RSS_FEED environment variable is required")
     last_update_date = datetime(2023, 6, 1)
 
     download_all_episode(RSS_FEED, last_update_date, output_folder="mp3_downloads")
