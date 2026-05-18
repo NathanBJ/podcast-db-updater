@@ -1,23 +1,11 @@
 import chromadb
-from chromadb.utils import embedding_functions
 import os
 import glob
 import json
 import re
 import sys
 import datetime
-import time
-
-# --- CONFIGURATION ---
-# We use a specific model great for French
-# It will download automatically (~470MB) the first time you run it.
-MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
-
-def get_local_ef():
-    """Sets up the local Hugging Face embedding function"""
-    return embedding_functions.SentenceTransformerEmbeddingFunction(
-        model_name=MODEL_NAME
-    )
+from hf_embeddings import get_embedding_function
 
 def chunk_text(text, chunk_size=1000, overlap=100):
     # Same chunking logic as before
@@ -57,12 +45,12 @@ def store_all_transcripts(folder_path, collection_name="BKHK_podcast", db_path="
     #time.sleep(100000)
     client = chromadb.PersistentClient(path=db_path)
     
-    print(f"⏳ Loading local model '{MODEL_NAME}'... (First time takes a minute)")
-    local_ef = get_local_ef()
+    print(f"⏳ Getting embedding function...")
+    embedding_fn = get_embedding_function()
     
     collection = client.get_or_create_collection(
         name=collection_name, 
-        embedding_function=local_ef
+        embedding_function=embedding_fn
     )
     os.makedirs(folder_path, exist_ok=True)
     if not os.path.exists(folder_path):
@@ -95,29 +83,33 @@ def store_all_transcripts(folder_path, collection_name="BKHK_podcast", db_path="
                 ids=ids,
                 metadatas=metadatas
             )
+            #TODO: retrieve all "published_date" from the metadata and store the most recent one in the system_metadata collection to track when the database was last updated with new episodes
+            if "published_date" in data and data["published_date"]:
+                # Store the most recent published_date in system_metadata
+                sys_collection = client.get_or_create_collection("system_metadata")
+                existing = sys_collection.get(ids=["last_published_date"])
+                existing_date = existing['metadatas'][0]['published_date'] if existing['metadatas'] else None
+                if not existing_date or data["published_date"] > existing_date:
+                    sys_collection.upsert(
+                        ids=["last_published_date"],
+                        documents=[f"Last published date: {data['published_date']}"],
+                        metadatas=[{
+                            "published_date": data["published_date"]
+                        }]
+                    )
+                    print(f"   📅 Updated last published date to {data['published_date']}")
             print(f"   ✅ {filename}: {len(chunks)} chunks stored.")
 
         except Exception as e:
             print(f"   ❌ Error on {filename}: {e}")
-    # Create a separate collection for admin info
-    sys_collection = client.get_or_create_collection("system_metadata")
-
-    # Overwrite the 'last_run' entry every time the script finishes
-    sys_collection.upsert(
-        ids=["last_update_timestamp"],
-        documents=["Track when the database was last refreshed"],
-        metadatas=[{
-            "timestamp": datetime.datetime.now().isoformat(),
-            "status": "success"
-        }]
-    )
-    print("✅ Timestamp updated.")
+    
+    print("✅ All transcripts processed.")
 
 def query_database(query_text, collection_name="BKHK_podcast"):
     client = chromadb.PersistentClient(path="podcast_db_local_fr")
     
     # Must use the SAME model for querying
-    local_ef = get_local_ef()
+    local_ef = get_embedding_function()
     collection = client.get_collection(name=collection_name, embedding_function=local_ef)
     
     print(f"\n🔍 Searching for: '{query_text}'")

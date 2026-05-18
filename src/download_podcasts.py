@@ -11,49 +11,34 @@ from spotipy.oauth2 import SpotifyClientCredentials
 from datetime import datetime
 import time
 
-def get_spotify_url(episode_title, podcast_title, show_name=None):
-    """
-    Recherche un épisode sur Spotify et retourne son lien URL.
-    
-    Args:
-        episode_title (str): Le titre de l'épisode (ex: "Gérer la colère").
-        show_name (str, optional): Le nom du podcast pour filtrer (ex: "Éducation Positive").
-    
-    Returns:
-        str: L'URL Spotify (ex: 'https://open.spotify.com/episode/...') ou None si non trouvé.
-    """
-    # Configuration de l'authentification (idéalement via variables d'environnement)
-    # Vous pouvez aussi mettre les clés en dur pour tester, mais ne les partagez pas.
+def get_spotify_url(episode_title, podcast_title):
     CLIENT_ID = os.getenv("SPOTIPY_CLIENT_ID")
     CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET")
+    spotify_show_name = os.getenv("SPOTIFY_PODCAST_NAME") or podcast_title
 
-    # 1. Connexion à l'API (Client Credentials Flow - pas besoin de login utilisateur)
     auth_manager = SpotifyClientCredentials(client_id=CLIENT_ID, client_secret=CLIENT_SECRET)
     sp = spotipy.Spotify(auth_manager=auth_manager)
 
-    # 2. Construction de la requête de recherche
-    # La syntaxe Spotify permet de filtrer par show avec "show:NomDuPodcast"
-    query = f'"{episode_title}"' # Les guillemets aident à chercher la phrase exacte
-    if show_name:
-        query += f" show:{show_name}"
-
+    query = f'"{episode_title}" show:{spotify_show_name}'
     print(f"🔍 Recherche Spotify pour : {query} ...")
 
     try:
-        # 3. Exécution de la recherche (type='episode')
-        results = sp.search(q=query, type='episode', limit=1, market='FR')
-        
+        results = sp.search(q=query, type='episode', limit=5, market='FR')
         items = results['episodes']['items']
-        
-        if items:
-            # On récupère le premier résultat
-            found_url = items[0]['external_urls']['spotify']
-            found_name = items[0]['name']
-            print(f"   ✅ Trouvé : {found_name}")
-            return found_url
-        else:
-            print("   ❌ Aucun résultat trouvé sur Spotify.")
-            return None
+
+        normalized_title = episode_title.strip().lower()
+        normalized_show = spotify_show_name.strip().lower()
+
+        for item in items:
+            result_title = item['name'].strip().lower()
+            result_show = item['show']['name'].strip().lower()
+            if result_title == normalized_title and result_show == normalized_show:
+                found_url = item['external_urls']['spotify']
+                print(f"   ✅ Trouvé : {item['name']}")
+                return found_url
+
+        print("   ❌ Aucun résultat exact trouvé sur Spotify.")
+        return None
 
     except Exception as e:
         print(f"   ⚠️ Erreur API Spotify : {e}")
@@ -111,11 +96,18 @@ def download_episode(episode, headers, podcast_title, output_folder="mp3_downloa
                 size = file.write(data)
                 bar.update(size)
         spotify_url=get_spotify_url(title, podcast_title)
+        
+        # Extract publication date
+        published_date = None
+        if hasattr(episode, 'published_parsed') and episode.published_parsed:
+            published_date = datetime.fromtimestamp(time.mktime(episode.published_parsed)).isoformat()
+        
         metadata = {
             "title": title,
             "podcast": podcast_title,
             "audio_url": audio_url,
-            "spotify_url": spotify_url
+            "spotify_url": spotify_url,
+            "published_date": published_date
         }
         with open(json_filename, 'w', encoding='utf-8') as json_file:
             json.dump(metadata, json_file, ensure_ascii=False, indent=4)
@@ -153,6 +145,11 @@ def download_all_episode(rss_url, last_update_date, output_folder="mp3_downloads
             if published_date > last_update_date:
           
                 episodes_to_download.append(episode)
+    
+    # Sort by oldest first and limit to MAX_EPISODES_PER_RUN to avoid exceeding API rate limits
+    episodes_to_download.sort(key=lambda ep: ep.published_parsed if hasattr(ep, 'published_parsed') else time.gmtime(0))
+    max_episodes = int(os.getenv("MAX_DOWNLOADED_EPISODES_PER_RUN", 5))
+    episodes_to_download = episodes_to_download[:max_episodes]
 
     # Start the processing of each episode with different threads
     with concurrent.futures.ThreadPoolExecutor(max_workers=cpu_count) as executor:
@@ -241,8 +238,9 @@ def download_latest_episode(rss_url, output_folder="downloads"):
         return None
 
 if __name__ == "__main__":
-    # Example: "Darknet Diaries" (Known to work well)
-    RSS_FEED = "https://rss.buzzsprout.com/2399777.rss"
+    RSS_FEED = os.getenv("RSS_FEED")
+    if not RSS_FEED:
+        raise RuntimeError("RSS_FEED environment variable is required")
     last_update_date = datetime(2023, 6, 1)
 
     download_all_episode(RSS_FEED, last_update_date, output_folder="mp3_downloads")

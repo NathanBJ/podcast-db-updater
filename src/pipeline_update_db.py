@@ -4,31 +4,35 @@ import download_podcasts
 import transcribe_podcast
 import store_podcast
 from datetime import datetime
+import os
 
 chromadb_path=Path(__file__).parent.parent / "podcast_db_local_fr"
-RSS_FEED = "https://rss.buzzsprout.com/2399777.rss"
+RSS_FEED = os.getenv("RSS_FEED")
+if not RSS_FEED:
+    raise RuntimeError("RSS_FEED environment variable is required")
 TEMP_FOLDER="mp3_downloads"
 DB_PATH="podcast_db_local_fr"
+COLLECTION_NAME = os.getenv("COLLECTION_NAME", "podcast_collection")
 
 def get_last_modified_timestamp(chromadb_path):
     """
-    Returns the last modified time from ChromaDB as a datetime object.
+    Returns the last published date from ChromaDB as a datetime object.
     Returns None if the database or timestamp doesn't exist.
     """
     try:
         client = chromadb.PersistentClient(path=chromadb_path)
         sys_collection = client.get_collection("system_metadata")
         
-        result = sys_collection.get(ids=["last_update_timestamp"])
+        result = sys_collection.get(ids=["last_published_date"])
 
         # Check if we actually got data back
         if result['metadatas'] and result['metadatas'][0]:
-            date_str = result['metadatas'][0]['timestamp']
+            date_str = result['metadatas'][0]['published_date']
             
             # Convert ISO String -> Datetime Object
             last_date_obj = datetime.fromisoformat(date_str)
             
-            print(f"📅 Last Knowledge Update: {last_date_obj}")
+            print(f"📅 Last Published Date: {last_date_obj}")
             return last_date_obj
             
     except Exception as e:
@@ -58,6 +62,6 @@ if __name__ == "__main__":
     print("🗄️  Updating the podcast database...")
     store_podcast.store_all_transcripts(
         TEMP_FOLDER,
-        collection_name="BKHK_podcast", 
+        collection_name=COLLECTION_NAME,
         db_path=DB_PATH
     )
