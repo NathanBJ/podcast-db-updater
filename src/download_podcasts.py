@@ -11,49 +11,34 @@ from spotipy.oauth2 import SpotifyClientCredentials
 from datetime import datetime
 import time
 
-def get_spotify_url(episode_title, podcast_title, show_name=None):
-    """
-    Recherche un épisode sur Spotify et retourne son lien URL.
-    
-    Args:
-        episode_title (str): Le titre de l'épisode (ex: "Gérer la colère").
-        show_name (str, optional): Le nom du podcast pour filtrer (ex: "Éducation Positive").
-    
-    Returns:
-        str: L'URL Spotify (ex: 'https://open.spotify.com/episode/...') ou None si non trouvé.
-    """
-    # Configuration de l'authentification (idéalement via variables d'environnement)
-    # Vous pouvez aussi mettre les clés en dur pour tester, mais ne les partagez pas.
+def get_spotify_url(episode_title, podcast_title):
     CLIENT_ID = os.getenv("SPOTIPY_CLIENT_ID")
     CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET")
+    spotify_show_name = os.getenv("SPOTIFY_PODCAST_NAME") or podcast_title
 
-    # 1. Connexion à l'API (Client Credentials Flow - pas besoin de login utilisateur)
     auth_manager = SpotifyClientCredentials(client_id=CLIENT_ID, client_secret=CLIENT_SECRET)
     sp = spotipy.Spotify(auth_manager=auth_manager)
 
-    # 2. Construction de la requête de recherche
-    # La syntaxe Spotify permet de filtrer par show avec "show:NomDuPodcast"
-    query = f'"{episode_title}"' # Les guillemets aident à chercher la phrase exacte
-    if show_name:
-        query += f" show:{show_name}"
-
+    query = f'"{episode_title}" show:{spotify_show_name}'
     print(f"🔍 Recherche Spotify pour : {query} ...")
 
     try:
-        # 3. Exécution de la recherche (type='episode')
-        results = sp.search(q=query, type='episode', limit=1, market='FR')
-        
+        results = sp.search(q=query, type='episode', limit=5, market='FR')
         items = results['episodes']['items']
-        
-        if items:
-            # On récupère le premier résultat
-            found_url = items[0]['external_urls']['spotify']
-            found_name = items[0]['name']
-            print(f"   ✅ Trouvé : {found_name}")
-            return found_url
-        else:
-            print("   ❌ Aucun résultat trouvé sur Spotify.")
-            return None
+
+        normalized_title = episode_title.strip().lower()
+        normalized_show = spotify_show_name.strip().lower()
+
+        for item in items:
+            result_title = item['name'].strip().lower()
+            result_show = item['show']['name'].strip().lower()
+            if result_title == normalized_title and result_show == normalized_show:
+                found_url = item['external_urls']['spotify']
+                print(f"   ✅ Trouvé : {item['name']}")
+                return found_url
+
+        print("   ❌ Aucun résultat exact trouvé sur Spotify.")
+        return None
 
     except Exception as e:
         print(f"   ⚠️ Erreur API Spotify : {e}")

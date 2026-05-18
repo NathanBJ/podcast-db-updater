@@ -1,6 +1,6 @@
 # Podcast Database Updater
 
-> **Part 1 of a two-part project.** This repository builds the searchable podcast database. Part 2 (the AI agent that queries it) is coming soon.
+> **Part 1 of a two-part project.** This repository builds the searchable podcast database. Part 2 is the AI agent that queries it.
 
 A fully automated pipeline that turns podcast audio into a searchable vector database — with zero manual intervention once deployed. Point it at any RSS feed, and every new episode becomes semantically searchable within minutes of running.
 
@@ -29,7 +29,7 @@ The pipeline runs four steps in sequence:
 
 The short answer: **Docker image size**.
 
-Running Whisper and an embedding model locally requires downloading those models into the image. That pushes the image from ~100 MB to ~7 GB — making cold starts slow, cloud deployments expensive, and iteration painful.
+Running Whisper and an embedding model locally requires downloading those models into the image. That pushes the image from ~100 MB to ~7 GB making cold starts slow, cloud deployments expensive, and iteration painful.
 
 By calling external APIs instead, the Docker image stays lean (~100 MB), starts in ~5 seconds, and needs no GPU.
 
@@ -38,17 +38,17 @@ By calling external APIs instead, the Docker image stays lean (~100 MB), starts 
 | Local models | ~7 GB | Minutes | Yes (ideally) | Hardware |
 | API-based (this project) | ~100 MB | ~5 seconds | No | Free tiers |
 
-Every external service is also a **swap point**: replace Groq with OpenAI, HuggingFace with Cohere, ChromaDB with Pinecone — the pipeline structure doesn't change.
+Every external service is also a **swap point**: replace Groq with OpenAI, HuggingFace with Cohere, ChromaDB with Pinecone, the pipeline structure doesn't change.
 
 ### Why RSS?
 
-RSS feeds are the open standard used by every podcast platform. No scraping, no fragile HTML parsing — just a clean XML feed with episode titles, dates, and direct audio links. Point the pipeline at any RSS URL and it works.
+RSS feeds are the open standard used by every podcast platform. No scraping, no fragile HTML parsing, just a clean XML feed with episode titles, dates, and direct audio links. Point the pipeline at any RSS URL and it works.
 
 ---
 
 ## API limitations and their impact on the workflow
 
-Understanding the free tier constraints is important — they directly shape how the pipeline behaves.
+Understanding the free tier constraints is important, they directly shape how the pipeline behaves.
 
 ### Groq Whisper API (transcription)
 
@@ -76,7 +76,9 @@ Understanding the free tier constraints is important — they directly shape how
 
 **Free tier limits:** The Spotify API is free for non-commercial use. Calls are rate-limited per application, but at one call per episode download, this is rarely a problem.
 
-**Impact on the workflow:** If Spotify cannot find a match for an episode title (possible for very new episodes or titles with special characters), the `spotify_url` field in the metadata is stored as `null`. The pipeline continues regardless — the Spotify link is enrichment, not a requirement.
+**Impact on the workflow:** The pipeline searches for an exact episode title match and verifies that the result belongs to the correct show (using `SPOTIFY_PODCAST_NAME`). This prevents false positives when another podcast shares the same episode title or when one podcast name is a substring of another. If no exact match is found, the `spotify_url` field is stored as `null`. The pipeline continues regardless — the Spotify link is enrichment, not a requirement.
+
+`SPOTIFY_PODCAST_NAME` must match the show name exactly as it appears on Spotify (case-insensitive). If this variable is not set, the pipeline falls back to the RSS feed title.
 
 ### ChromaDB (storage)
 
@@ -127,6 +129,7 @@ Copy `.env.example` to `.env` and fill in your values:
 # Podcast source
 RSS_FEED=https://your-podcast-rss-feed.com/feed.xml
 COLLECTION_NAME=my_podcast_collection
+SPOTIFY_PODCAST_NAME=Exact Podcast Name As Shown On Spotify
 
 # API keys
 GROQ_API_KEY=your_groq_api_key
@@ -137,6 +140,10 @@ SPOTIPY_CLIENT_SECRET=your_spotify_client_secret
 # Pipeline behavior
 MAX_DOWNLOADED_EPISODES_PER_RUN=5   # Limit per run to stay within API quotas
 ```
+
+### `SPOTIFY_PODCAST_NAME`
+
+The exact name of your podcast as it appears on Spotify (e.g. `Éducation Positive`). Used both as the search filter and to verify that the returned episode belongs to the right show. This prevents false matches when another podcast shares the same episode title or when your podcast name appears inside another show's name. If not set, falls back to the RSS feed title — but setting it explicitly is recommended.
 
 ### `MAX_DOWNLOADED_EPISODES_PER_RUN`
 
@@ -201,4 +208,4 @@ The pipeline is designed so each external dependency can be replaced independent
 
 This repository is **Part 1: the Database Builder**.
 
-Part 2 — the AI agent that queries this database to answer questions about the podcast — is coming soon.
+Part 2 — the AI agent that queries this database to answer questions about the podcast.
